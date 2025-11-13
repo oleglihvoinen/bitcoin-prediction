@@ -1,0 +1,5 @@
+# notebooks/setup_notebook.py
+import os
+import sys
+
+def setup_notebook():\n    \"\"\"Setup notebook environment with correct paths\"\"\"\n    \n    # Get the absolute path to the project root\n    current_dir = os.getcwd()\n    \n    # Check if we're in notebooks directory\n    if current_dir.endswith('notebooks'):\n        project_root = os.path.dirname(current_dir)\n    else:\n        # We're already in project root\n        project_root = current_dir\n    \n    # Add to Python path\n    if project_root not in sys.path:\n        sys.path.insert(0, project_root)\n    \n    print(f\"✅ Project root added to path: {project_root}\")\n    \n    # Verify imports work\n    try:\n        from config.config import DATA_CONFIG\n        print(\"✅ Config imports successful\")\n        return True\n    except ImportError as e:\n        print(f\"❌ Import error: {e}\")\n        print(\"Current Python path:\")\n        for path in sys.path:\n            print(f\"  {path}\")\n        return False\n\n# Run setup when imported\nsetup_notebook()"
