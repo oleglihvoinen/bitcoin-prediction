@@ -1,3 +1,4 @@
+# models/lstm_model.py
 import numpy as np
 import pandas as pd
 import tensorflow as tf
@@ -9,6 +10,12 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 import joblib
 import os
+import sys
+
+# Add the utils directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from utils.feature_engineering import FeatureEngineer
 
 class BitcoinLSTM:
     def __init__(self, config):
@@ -19,8 +26,6 @@ class BitcoinLSTM:
     
     def prepare_sequences(self, df):
         """Prepare sequences for LSTM"""
-        from utils.feature_engineering import FeatureEngineer
-        
         feature_engineer = FeatureEngineer(self.config)
         feature_cols = feature_engineer.get_feature_columns(df)
         
@@ -44,8 +49,6 @@ class BitcoinLSTM:
         model = Sequential([
             LSTM(units=50, return_sequences=True, input_shape=input_shape),
             Dropout(self.config['dropout_rate']),
-            LSTM(units=50, return_sequences=True),
-            Dropout(self.config['dropout_rate']),
             LSTM(units=50, return_sequences=False),
             Dropout(self.config['dropout_rate']),
             Dense(25, activation='relu'),
@@ -66,32 +69,39 @@ class BitcoinLSTM:
         
         X, y, feature_cols = self.prepare_sequences(df)
         
-        # Split data (time series split)
+        # Split data (time series split - no shuffling!)
         split_idx = int(len(X) * (1 - self.config['test_size']))
         
         X_train, X_test = X[:split_idx], X[split_idx:]
         y_train, y_test = y[:split_idx], y[split_idx:]
         
+        print(f"   Training sequences: {X_train.shape[0]}")
+        print(f"   Testing sequences: {X_test.shape[0]}")
+        
         # Build model
         self.model = self.build_model((X_train.shape[1], X_train.shape[2]))
         
-        print(self.model.summary())
+        print("✅ LSTM Model built successfully")
+        print(f"   Input shape: {X_train.shape[1:]}")
         
         # Callbacks
         early_stopping = EarlyStopping(
             monitor='val_loss',
             patience=self.config['patience'],
-            restore_best_weights=True
+            restore_best_weights=True,
+            verbose=1
         )
         
         reduce_lr = ReduceLROnPlateau(
             monitor='val_loss',
             factor=0.5,
-            patience=10,
-            min_lr=0.0001
+            patience=5,
+            min_lr=0.0001,
+            verbose=1
         )
         
         # Train model
+        print("🏋️ Training LSTM model...")
         history = self.model.fit(
             X_train, y_train,
             batch_size=self.config['batch_size'],
@@ -99,7 +109,7 @@ class BitcoinLSTM:
             validation_split=self.config['validation_size'],
             callbacks=[early_stopping, reduce_lr],
             verbose=1,
-            shuffle=False
+            shuffle=False  # Important for time series!
         )
         
         # Make predictions
@@ -118,8 +128,8 @@ class BitcoinLSTM:
             'r2': r2
         }
         
-        print(f"LSTM Training Complete")
-        print(f"MAE: {mae:.4f}, RMSE: {rmse:.4f}, R²: {r2:.4f}")
+        print(f"✅ LSTM Training Complete")
+        print(f"   MAE: {mae:.4f}%, RMSE: {rmse:.4f}%, R²: {r2:.4f}")
         
         return metrics, history, y_test, y_pred
     
@@ -136,12 +146,12 @@ class BitcoinLSTM:
         
         self.model.save(model_path)
         joblib.dump(self.scaler, scaler_path)
-        print(f"Model saved to {model_path}")
-        print(f"Scaler saved to {scaler_path}")
+        print(f"💾 LSTM model saved to {model_path}")
+        print(f"💾 Scaler saved to {scaler_path}")
     
     def load_model(self, model_path, scaler_path):
         """Load trained model and scaler"""
         self.model = tf.keras.models.load_model(model_path)
         self.scaler = joblib.load(scaler_path)
-        print(f"Model loaded from {model_path}")
-        print(f"Scaler loaded from {scaler_path}")
+        print(f"📂 LSTM model loaded from {model_path}")
+        print(f"📂 Scaler loaded from {scaler_path}")

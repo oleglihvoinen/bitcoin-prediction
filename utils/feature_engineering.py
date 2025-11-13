@@ -91,3 +91,27 @@ class FeatureEngineer:
             y_seq.append(y[i])
         
         return np.array(X_seq), np.array(y_seq)
+    # Add this method to the FeatureEngineer class in feature_engineering.py
+    def add_price_prediction_features(self, df):
+        """Add features specifically for price prediction (not just changes)"""
+        print("Adding price prediction features...")
+        
+        # Make a copy to avoid modifying original data
+        df_price = df.copy()
+        
+        # Keep the existing technical indicators
+        df_price = self.add_technical_indicators(df_price)
+        
+        # Change target to actual future price instead of percentage change
+        horizon = self.config['prediction_horizon']
+        df_price['target_price'] = df_price['close'].shift(-horizon)
+        
+        # Remove the percentage change target if it exists
+        if 'target' in df_price.columns:
+            df_price = df_price.drop('target', axis=1)
+        
+        # Drop NaN values created by indicators and target
+        df_price = df_price.dropna()
+        
+        print(f"Price prediction features complete. Final shape: {df_price.shape}")
+        return df_price
